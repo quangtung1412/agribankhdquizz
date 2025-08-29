@@ -1,0 +1,5 @@
+{
+  "name": "Quiz Master - Trắc nghiệm từ Excel",
+  "description": "Một ứng dụng web cho phép người dùng tạo và làm bài thi trắc nghiệm từ file Excel của riêng họ. Hỗ trợ hai chế độ: Học tập và Thi cử, với các tùy chọn tùy chỉnh linh hoạt.",
+  "requestFramePermissions": []
+}
