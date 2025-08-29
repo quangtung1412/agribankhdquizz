@@ -30,3 +30,15 @@ export type UserAnswer = {
   selectedOptionIndex: number | null;
   isCorrect: boolean | null;
 };
+
+export interface QuizAttempt {
+  id: string;
+  knowledgeBaseId: string;
+  knowledgeBaseName: string;
+  mode: QuizMode;
+  settings: QuizSettings;
+  startedAt: string;
+  completedAt: string | null;
+  userAnswers: UserAnswer[];
+  score: number | null; // Stored as percentage, e.g., 85.5
+}

@@ -6,13 +6,14 @@ interface KnowledgeBaseScreenProps {
     onSelect: (baseId: string) => void;
     onCreate: () => void;
     onDelete: (baseId: string) => void;
+    onViewHistory: () => void;
 }
 
-const KnowledgeBaseScreen: React.FC<KnowledgeBaseScreenProps> = ({ bases, onSelect, onCreate, onDelete }) => {
+const KnowledgeBaseScreen: React.FC<KnowledgeBaseScreenProps> = ({ bases, onSelect, onCreate, onDelete, onViewHistory }) => {
     
     const handleDelete = (e: React.MouseEvent, baseId: string, baseName: string) => {
         e.stopPropagation(); // Prevent onSelect from being called
-        if (window.confirm(`Bạn có chắc chắn muốn xóa bộ câu hỏi "${baseName}" không?`)) {
+        if (window.confirm(`Bạn có chắc chắn muốn xóa bộ câu hỏi "${baseName}" không? Thao tác này cũng sẽ xóa lịch sử làm bài liên quan.`)) {
             onDelete(baseId);
         }
     };
@@ -21,15 +22,26 @@ const KnowledgeBaseScreen: React.FC<KnowledgeBaseScreenProps> = ({ bases, onSele
         <div className="w-full">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-semibold text-slate-700">Cơ sở kiến thức của bạn</h2>
-                <button 
-                    onClick={onCreate} 
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 border border-transparent rounded-md shadow-sm hover:bg-sky-700"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Tạo mới
-                </button>
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={onViewHistory} 
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-sky-700 bg-sky-100 border border-transparent rounded-md shadow-sm hover:bg-sky-200"
+                    >
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Lịch sử
+                    </button>
+                    <button 
+                        onClick={onCreate} 
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-sky-600 border border-transparent rounded-md shadow-sm hover:bg-sky-700"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Tạo mới
+                    </button>
+                </div>
             </div>
 
             {bases.length === 0 ? (

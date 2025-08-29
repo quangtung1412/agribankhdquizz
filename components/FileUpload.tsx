@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import type { Question } from '../types';
 
@@ -34,6 +35,26 @@ const FileUpload: React.FC<FileUploadProps> = ({ onSaveNewBase, onBack }) => {
         throw new Error("File Excel không có dữ liệu hoặc định dạng không đúng.");
       }
       
+      const getCorrectAnswerIndex = (value: any): number => {
+        if (value === null || value === undefined) return NaN;
+        const strValue = String(value).trim().toUpperCase();
+        if (strValue.length === 0) return NaN;
+
+        const numericValue = parseInt(strValue, 10);
+        if (!isNaN(numericValue) && numericValue >= 1 && numericValue <= 4) {
+            return numericValue - 1;
+        }
+
+        if (strValue.length === 1) {
+            const charCode = strValue.charCodeAt(0);
+            if (charCode >= 65 && charCode <= 68) { // 'A' to 'D'
+                return charCode - 65;
+            }
+        }
+        
+        return NaN;
+      };
+
       const questions: Question[] = json.slice(1).map((row: any[], index: number) => {
         if (row.filter(cell => cell !== null && cell !== undefined && cell !== '').length < 7) {
           return null;
@@ -48,7 +69,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onSaveNewBase, onBack }) => {
             row[4]?.toString().trim(),
             row[5]?.toString().trim(),
           ],
-          correctAnswerIndex: parseInt(row[6]?.toString(), 10) - 1,
+          correctAnswerIndex: getCorrectAnswerIndex(row[6]),
           source: row[7]?.toString().trim() || 'Không có',
           category: row[8]?.toString().trim() || 'Chung',
         };
@@ -132,7 +153,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onSaveNewBase, onBack }) => {
       <h2 className="text-2xl font-semibold text-slate-700 mb-4">Tạo cơ sở kiến thức mới</h2>
       <p className="text-slate-500 mb-6 max-w-md">
         Tải lên file Excel (.xlsx, .xls) chứa bộ câu hỏi của bạn.
-        Các cột: STT, Câu hỏi, 4 cột Đáp án, Đáp án đúng (1-4), Nguồn, Phân loại.
+        Các cột: STT, Câu hỏi, 4 cột Đáp án, Đáp án đúng (1-4 hoặc A-D), Nguồn, Phân loại.
       </p>
 
       <label htmlFor="file-upload" className="w-full max-w-sm cursor-pointer bg-slate-50 border-2 border-dashed border-slate-300 rounded-lg p-8 hover:border-sky-500 hover:bg-sky-50 transition-colors">
