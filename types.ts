@@ -1,5 +1,5 @@
 export interface Question {
-  id: number;
+  id: string; // use string (uuid) to avoid collisions
   question: string;
   options: string[];
   correctAnswerIndex: number; // 0-3
@@ -26,7 +26,7 @@ export interface QuizSettings {
 }
 
 export type UserAnswer = {
-  questionId: number;
+  questionId: string;
   selectedOptionIndex: number | null;
   isCorrect: boolean | null;
 };

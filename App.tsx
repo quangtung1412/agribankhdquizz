@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Question, QuizMode, QuizSettings, UserAnswer, KnowledgeBase, QuizAttempt } from './types';
+import { useKnowledgeBaseStore, useAttemptStore } from './src/hooks/usePersistentStores';
+import { shuffleArray } from './src/utils/shuffle';
 import FileUpload from './components/FileUpload';
 import MainMenu from './components/MainMenu';
 import SetupScreen from './components/SetupScreen';
@@ -16,8 +18,8 @@ const App: React.FC = () => {
   const [user, setUser] = useState<{ name: string; email: string; picture: string } | null>(null);
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
   
-  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
-  const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
+  const { bases: knowledgeBases, setBases: setKnowledgeBases } = useKnowledgeBaseStore(user?.email || null);
+  const { attempts: quizAttempts, setAttempts: setQuizAttempts } = useAttemptStore(user?.email || null);
   const [selectedKnowledgeBase, setSelectedKnowledgeBase] = useState<KnowledgeBase | null>(null);
 
   const [allQuestions, setAllQuestions] = useState<Question[]>([]);
@@ -29,34 +31,28 @@ const App: React.FC = () => {
   const [currentAttemptId, setCurrentAttemptId] = useState<string | null>(null);
 
 
-  // LocalStorage Sync
+  // Hydrate unfinished attempt after refresh
   useEffect(() => {
-    if (user) {
-      const storedBases = localStorage.getItem(`quizmaster_bases_${user.email}`);
-      if (storedBases) {
-        setKnowledgeBases(JSON.parse(storedBases));
+    if (!currentAttemptId) return;
+    const attempt = quizAttempts.find(a => a.id === currentAttemptId);
+    if (attempt && attempt.userAnswers.length && activeQuizQuestions.length === 0) {
+      const kb = knowledgeBases.find(b => b.id === attempt.knowledgeBaseId);
+      if (kb) {
+        const applicable = attempt.settings.categories.length
+          ? kb.questions.filter(q => attempt.settings.categories.includes(q.category))
+          : kb.questions;
+        const questionMap = new Map(applicable.map(q => [q.id, q]));
+        const restored: Question[] = attempt.userAnswers
+          .map(a => questionMap.get(a.questionId))
+          .filter((q): q is Question => !!q)
+          .slice(0, attempt.settings.questionCount);
+        setActiveQuizQuestions(restored);
+        setUserAnswers(attempt.userAnswers);
+        setQuizSettings(attempt.settings);
+        setQuizMode(attempt.mode);
       }
-      const storedAttempts = localStorage.getItem(`quizmaster_attempts_${user.email}`);
-      if (storedAttempts) {
-        setQuizAttempts(JSON.parse(storedAttempts));
-      }
-    } else {
-      setKnowledgeBases([]);
-      setQuizAttempts([]);
     }
-  }, [user]);
-
-  const saveBasesToLocalStorage = useCallback((bases: KnowledgeBase[]) => {
-      if(user) {
-          localStorage.setItem(`quizmaster_bases_${user.email}`, JSON.stringify(bases));
-      }
-  }, [user]);
-
-  const saveAttemptsToLocalStorage = useCallback((attempts: QuizAttempt[]) => {
-      if(user) {
-          localStorage.setItem(`quizmaster_attempts_${user.email}`, JSON.stringify(attempts));
-      }
-  }, [user]);
+  }, [currentAttemptId, quizAttempts, knowledgeBases, activeQuizQuestions.length]);
 
 
   const handleLoginSuccess = useCallback((loggedInUser: { name: string; email: string; picture: string }) => {
@@ -67,13 +63,13 @@ const App: React.FC = () => {
   const handleLogout = useCallback(() => {
     setUser(null);
     setCurrentScreen('login');
-    setKnowledgeBases([]);
+  setKnowledgeBases([]);
     setAllQuestions([]);
     setQuizMode(null);
     setQuizSettings(null);
     setActiveQuizQuestions([]);
     setUserAnswers([]);
-    setQuizAttempts([]);
+  setQuizAttempts([]);
     setSelectedKnowledgeBase(null);
     setCurrentAttemptId(null);
   }, []);
@@ -98,11 +94,11 @@ const App: React.FC = () => {
     };
     const updatedBases = [...knowledgeBases, newBase];
     setKnowledgeBases(updatedBases);
-    saveBasesToLocalStorage(updatedBases);
+  // persistence handled by hook
     setAllQuestions(questions);
     setSelectedKnowledgeBase(newBase);
     setCurrentScreen('menu');
-  }, [knowledgeBases, saveBasesToLocalStorage]);
+  }, [knowledgeBases]);
 
   const handleSelectBase = useCallback((baseId: string) => {
     const selectedBase = knowledgeBases.find(b => b.id === baseId);
@@ -116,12 +112,9 @@ const App: React.FC = () => {
   const handleDeleteBase = useCallback((baseId: string) => {
     const updatedBases = knowledgeBases.filter(b => b.id !== baseId);
     setKnowledgeBases(updatedBases);
-    saveBasesToLocalStorage(updatedBases);
-    // Also delete related attempts
-    const updatedAttempts = quizAttempts.filter(a => a.knowledgeBaseId !== baseId);
-    setQuizAttempts(updatedAttempts);
-    saveAttemptsToLocalStorage(updatedAttempts);
-  }, [knowledgeBases, saveBasesToLocalStorage, quizAttempts, saveAttemptsToLocalStorage]);
+  const updatedAttempts = quizAttempts.filter(a => a.knowledgeBaseId !== baseId);
+  setQuizAttempts(updatedAttempts);
+  }, [knowledgeBases, quizAttempts]);
 
 
   const handleModeSelect = useCallback((mode: QuizMode) => {
@@ -138,9 +131,9 @@ const App: React.FC = () => {
       ? allQuestions.filter(q => settings.categories.includes(q.category))
       : allQuestions;
 
-    const shuffled = [...filteredQuestions].sort(() => 0.5 - Math.random());
-    const selectedQuestions = shuffled.slice(0, settings.questionCount);
-    const initialAnswers = selectedQuestions.map(q => ({ questionId: q.id, selectedOptionIndex: null, isCorrect: null }));
+  const shuffled: Question[] = shuffleArray(filteredQuestions) as Question[];
+  const selectedQuestions: Question[] = (shuffled as Question[]).slice(0, settings.questionCount);
+  const initialAnswers = selectedQuestions.map((q: Question) => ({ questionId: q.id, selectedOptionIndex: null, isCorrect: null }));
     
     const newAttempt: QuizAttempt = {
         id: Date.now().toString(),
@@ -154,28 +147,20 @@ const App: React.FC = () => {
         score: null,
     };
 
-    const updatedAttempts = [...quizAttempts, newAttempt];
-    setQuizAttempts(updatedAttempts);
-    saveAttemptsToLocalStorage(updatedAttempts);
+  const updatedAttempts = [...quizAttempts, newAttempt];
+  setQuizAttempts(updatedAttempts);
     setCurrentAttemptId(newAttempt.id);
     
     setActiveQuizQuestions(selectedQuestions);
     setUserAnswers(initialAnswers);
     setCurrentScreen('quiz');
-  }, [allQuestions, selectedKnowledgeBase, quizMode, quizAttempts, saveAttemptsToLocalStorage]);
+  }, [allQuestions, selectedKnowledgeBase, quizMode, quizAttempts]);
 
   const handleAnswerUpdate = useCallback((updatedAnswers: UserAnswer[]) => {
       if (!currentAttemptId) return;
 
-      const updatedAttempts = quizAttempts.map(attempt => {
-          if (attempt.id === currentAttemptId) {
-              return { ...attempt, userAnswers: updatedAnswers };
-          }
-          return attempt;
-      });
-      setQuizAttempts(updatedAttempts);
-      saveAttemptsToLocalStorage(updatedAttempts);
-  }, [quizAttempts, currentAttemptId, saveAttemptsToLocalStorage]);
+  setQuizAttempts(prev => prev.map(attempt => attempt.id === currentAttemptId ? { ...attempt, userAnswers: updatedAnswers } : attempt));
+  }, [quizAttempts, currentAttemptId]);
 
   const handleQuizComplete = useCallback((finalAnswers: UserAnswer[]) => {
     if(currentAttemptId) {
@@ -183,19 +168,12 @@ const App: React.FC = () => {
         const totalCount = finalAnswers.length;
         const score = totalCount > 0 ? parseFloat(((correctCount / totalCount) * 100).toFixed(2)) : 0;
 
-        const updatedAttempts = quizAttempts.map(attempt => {
-            if (attempt.id === currentAttemptId) {
-                return { ...attempt, userAnswers: finalAnswers, completedAt: new Date().toISOString(), score };
-            }
-            return attempt;
-        });
-        setQuizAttempts(updatedAttempts);
-        saveAttemptsToLocalStorage(updatedAttempts);
+  setQuizAttempts(prev => prev.map(attempt => attempt.id === currentAttemptId ? { ...attempt, userAnswers: finalAnswers, completedAt: new Date().toISOString(), score } : attempt));
         setCurrentAttemptId(null);
     }
     setUserAnswers(finalAnswers);
     setCurrentScreen('results');
-  }, [quizAttempts, currentAttemptId, saveAttemptsToLocalStorage]);
+  }, [quizAttempts, currentAttemptId]);
 
   const handleRestartQuiz = useCallback(() => {
     setCurrentScreen('menu');

@@ -1,6 +1,8 @@
 
 import React, { useState, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import type { Question } from '../types';
+import { v4 as uuidv4 } from 'uuid';
 
 interface FileUploadProps {
   onSaveNewBase: (name: string, questions: Question[]) => void;
@@ -25,11 +27,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ onSaveNewBase, onBack }) => {
     setBaseName(file.name.replace(/\.(xlsx|xls)$/, ''));
 
     try {
-      const data = await file.arrayBuffer();
-      const workbook = (window as any).XLSX.read(data, { type: 'array' });
+  const data = await file.arrayBuffer();
+  const workbook = XLSX.read(data, { type: 'array' });
       const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const json: any[] = (window as any).XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+  const worksheet = workbook.Sheets[sheetName];
+  const json: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
       if (json.length < 2) {
         throw new Error("File Excel không có dữ liệu hoặc định dạng không đúng.");
@@ -55,13 +57,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onSaveNewBase, onBack }) => {
         return NaN;
       };
 
-      const questions: Question[] = json.slice(1).map((row: any[], index: number) => {
+  const questions: Question[] = json.slice(1).map((row: any[], index: number) => {
         if (row.filter(cell => cell !== null && cell !== undefined && cell !== '').length < 7) {
           return null;
         }
         
         const questionData: Question = {
-          id: row[0] || index + 1,
+          id: uuidv4(),
           question: row[1]?.toString().trim(),
           options: [
             row[2]?.toString().trim(),
